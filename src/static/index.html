@@ -45,6 +45,76 @@
       <p>&copy; 2023 Mergington High School</p>
     </footer>
 
-    <script src="app.js"></script>
+    <script>
+      async function loadActivities() {
+        const activitiesList = document.getElementById("activities-list");
+        const activitySelect = document.getElementById("activity");
+        activitiesList.innerHTML = "<p>Loading activities...</p>";
+
+        try {
+          const response = await fetch("/activities", { cache: "no-store" }); // prevent caching
+          const data = await response.json();
+
+          // Populate activity cards
+          activitiesList.innerHTML = "";
+          Object.entries(data).forEach(([name, activity]) => {
+            const activityCard = document.createElement("div");
+            activityCard.classList.add("activity-card");
+            activityCard.innerHTML = `
+              <h4>${name}</h4>
+              <p>${activity.description}</p>
+              <p><b>Schedule:</b> ${activity.schedule}</p>
+              <p><b>Availability:</b> ${activity.max_participants - activity.participants.length} spots left</p>
+              <div class="participants-section">
+                <span class="participants-label">Participants:</span>
+                <ul class="participants-list">
+                  ${activity.participants.map((participant) => `<li>${participant}</li>`).join("")}
+                </ul>
+              </div>
+            `;
+            activitiesList.appendChild(activityCard);
+          });
+
+          // Populate activity select dropdown
+          activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
+          Object.keys(data).forEach((name) => {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            activitySelect.appendChild(option);
+          });
+        } catch (err) {
+          activitiesList.innerHTML = "<p>Failed to load activities.</p>";
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", loadActivities);
+
+      document.getElementById("signup-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const email = document.getElementById("email").value;
+        const activity = document.getElementById("activity").value;
+        const messageDiv = document.getElementById("message");
+        messageDiv.className = "message hidden";
+        messageDiv.textContent = "";
+
+        try {
+          const response = await fetch(`/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`, {
+            method: "POST"
+          });
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || "Sign up failed");
+          }
+          messageDiv.className = "message success";
+          messageDiv.textContent = "Successfully signed up!";
+          document.getElementById("signup-form").reset(); // clear form
+          await loadActivities(); // Refresh activities list
+        } catch (err) {
+          messageDiv.className = "message error";
+          messageDiv.textContent = err.message;
+        }
+      });
+    </script>
   </body>
 </html>
